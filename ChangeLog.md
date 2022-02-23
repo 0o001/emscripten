@@ -24,6 +24,12 @@ See docs/process.md for more on how version tagging works.
   `mergeInto`, to the more specific `addToLibrary`.  This new function does not
   require the passing of `LibraryManager.library` as a first argument.  The old
   `mergeInto` continues to exist for backwards compat.
+- `-sSTRICT` now implies `-sINCOMING_MODULE_API=[]` which is generally good
+  for code size.  If you `-sSTRICT` you now need to be explicit about the
+  incoming module APIs you are supplying.  Users who supply symbols on the
+  incoming module but forget to include them in `-sINCOMING_MODULE_API`
+  will see an error in debug builds so this change will not generate any
+  silent failures.
 
 3.1.44 - 07/25/23
 -----------------
