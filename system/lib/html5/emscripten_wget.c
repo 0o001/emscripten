@@ -60,18 +60,42 @@ struct AsyncWgetData {
   em_str_callback_func onerror;
 };
 
-static void _emscripten_async_wget_onload(void* arg, void* buf, int bufsize) {
+// We reallocate an array of AsyncWgetData structures here. This is necessary
+// because we can't pass an AsyncWgetData* through all the callbacks - the ones
+// for preloading only have
+struct AsyncWgetData* datas = NULL;
+
+static void _wget_onload_onload(const char* file) {
   struct AsyncWgetData* data = (struct AsyncWgetData*)arg;
-  int fd = open(data->file, O_WRONLY | O_CREAT, S_IRWXU);
-  if (fd >= 0) {
-    write(fd, buf, bufsize);
-    close(fd);
-  }
   data->onload(data->file);
   free(data);
 }
 
-static void _emscripten_async_wget_onerror(void* arg) {
+static void _wget_onload_onerror(const char* file) {
+  struct AsyncWgetData* data = (struct AsyncWgetData*)arg;
+  data->onerror(data->file);
+  free(data);
+}
+
+static void _wget_onload(void* arg, void* buf, int bufsize) {
+  struct AsyncWgetData* data = (struct AsyncWgetData*)arg;
+
+  // Write the file data.
+  int fd = open(data->file, O_WRONLY | O_CREAT, S_IRWXU);
+  if (fd < 0) {
+    free(data);
+    return;
+  }
+  write(fd, buf, bufsize);
+  close(fd);
+
+  // Perform preload operations. Only in those callbacks is the data freed.
+  emscripten_run_preload_plugins(data->file,
+                                 _wget_onload_onload,
+                                 _wget_onload_onerror);
+}
+
+static void _wget_onerror(void* arg) {
   struct AsyncWgetData* data = (struct AsyncWgetData*)arg;
   data->onerror(data->file);
   free(data);
@@ -91,6 +115,6 @@ void emscripten_async_wget(const char* url, const char* file, em_str_callback_fu
   data->onerror = onerror;
   emscripten_async_wget_data(url,
                              data,
-                             _emscripten_async_wget_onload,
-                             _emscripten_async_wget_onerror);
+                             _wget_onload,
+                             _wget_onerror);
 }
