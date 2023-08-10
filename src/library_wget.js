@@ -16,48 +16,6 @@ var LibraryWget = {
     },
   },
 
-  emscripten_async_wget__deps: ['$PATH_FS', '$wget', '$callUserCallback', '$Browser', '$withStackSave', '$stringToUTF8OnStack'],
-  emscripten_async_wget__proxy: 'sync',
-  emscripten_async_wget: (url, file, onload, onerror) => {
-    {{{ runtimeKeepalivePush() }}}
-
-    var _url = UTF8ToString(url);
-    var _file = UTF8ToString(file);
-    _file = PATH_FS.resolve(_file);
-    function doCallback(callback) {
-      if (callback) {
-        {{{ runtimeKeepalivePop() }}}
-        callUserCallback(function() {
-          withStackSave(function() {
-            {{{ makeDynCall('vi', 'callback') }}}(stringToUTF8OnStack(_file));
-          });
-        });
-      }
-    }
-    var destinationDirectory = PATH.dirname(_file);
-    FS.createPreloadedFile(
-      destinationDirectory,
-      PATH.basename(_file),
-      _url, true, true,
-      function() {
-        doCallback(onload);
-      },
-      function() {
-        doCallback(onerror);
-      },
-      false, // dontCreateFile
-      false, // canOwn
-      function() { // preFinish
-        // if a file exists there, we overwrite it
-        try {
-          FS.unlink(_file);
-        } catch (e) {}
-        // if the destination directory does not yet exist, create it
-        FS.mkdirTree(destinationDirectory);
-      }
-    );
-  },
-
   emscripten_async_wget_data__deps: ['$asyncLoad', 'malloc', 'free', '$callUserCallback'],
   emscripten_async_wget_data__proxy: 'sync',
   emscripten_async_wget_data: (url, arg, onload, onerror) => {

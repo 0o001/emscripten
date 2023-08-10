@@ -53,3 +53,44 @@ int emscripten_wget(const char* url, const char* file) {
   free(buffer);
   return fd < 0;
 }
+
+struct AsyncWgetData {
+  const char* file;
+  em_str_callback_func onload;
+  em_str_callback_func onerror;
+};
+
+static void _emscripten_async_wget_onload(void* arg, void* buf, int bufsize) {
+  struct AsyncWgetData* data = (struct AsyncWgetData*)arg;
+  int fd = open(data->file, O_WRONLY | O_CREAT, S_IRWXU);
+  if (fd >= 0) {
+    write(fd, buf, bufsize);
+    close(fd);
+  }
+  data->onload(data->file);
+  free(data);
+}
+
+static void _emscripten_async_wget_onerror(void* arg) {
+  struct AsyncWgetData* data = (struct AsyncWgetData*)arg;
+  data->onerror(data->file);
+  free(data);
+}
+
+void emscripten_async_wget(const char* url, const char* file, em_str_callback_func onload, em_str_callback_func onerror) {
+  // Create the ancestor directories.
+  if (mkdirs(file)) {
+    onerror(file);
+    return;
+  }
+
+  // Allocate data, which will be freed in the async callbacks.
+  struct AsyncWgetData* data = malloc(sizeof(struct AsyncWgetData));
+  data->file = file;
+  data->onload = onload;
+  data->onerror = onerror;
+  emscripten_async_wget_data(url,
+                             data,
+                             _emscripten_async_wget_onload,
+                             _emscripten_async_wget_onerror);
+}
