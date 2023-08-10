@@ -5,6 +5,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <string>
+#include <unordered_map>
+
 // Creates all ancestor directories of a given file, if they do not already
 // exist. Returns 0 on success or 1 on error.
 static int mkdirs(const char* file) {
@@ -54,40 +57,61 @@ int emscripten_wget(const char* url, const char* file) {
   return fd < 0;
 }
 
+// Async wget
+
 struct AsyncWgetData {
   const char* file;
   em_str_callback_func onload;
   em_str_callback_func onerror;
 };
 
-// We reallocate an array of AsyncWgetData structures here. This is necessary
+// Maps filenames to AsyncWgetData for all in-flight operations. This is needed
 // because we can't pass an AsyncWgetData* through all the callbacks - the ones
-// for preloading only have
-struct AsyncWgetData* datas = NULL;
+// for preloading only have the filename.
+std::unordered_map<std::string, AsyncWgetData*> _file_data_map;
+
+static void _add_data_to_map(AsyncWgetData* data) {
+  _file_data_map[data->file] = data;
+}
+
+static AsyncWgetData* _get_data_from_map_and_remove(const char* file) {
+  auto iter = _file_data_map.find(file);
+  if (iter == _file_data_map.end()) {
+    return nullptr;
+  }
+  auto ret = iter->second;
+  _file_data_map.erase(iter);
+  return ret;
+}
 
 static void _wget_onload_onload(const char* file) {
-  struct AsyncWgetData* data = (struct AsyncWgetData*)arg;
+  auto* data = _get_data_from_map_and_remove(file);
   data->onload(data->file);
-  free(data);
+  delete data;
 }
 
 static void _wget_onload_onerror(const char* file) {
-  struct AsyncWgetData* data = (struct AsyncWgetData*)arg;
+  auto* data = _get_data_from_map_and_remove(file);
   data->onerror(data->file);
-  free(data);
+  delete data;
 }
 
 static void _wget_onload(void* arg, void* buf, int bufsize) {
-  struct AsyncWgetData* data = (struct AsyncWgetData*)arg;
+  AsyncWgetData* data = (AsyncWgetData*)arg;
 
   // Write the file data.
   int fd = open(data->file, O_WRONLY | O_CREAT, S_IRWXU);
   if (fd < 0) {
-    free(data);
+    delete data;
     return;
   }
   write(fd, buf, bufsize);
   close(fd);
+
+  // Add the data to the map so that we can access it in the callbacks we are
+  // about to prepare for. Those callbacks only receive the string name, so the
+  // map is needed.
+  _add_data_to_map(data);
 
   // Perform preload operations. Only in those callbacks is the data freed.
   emscripten_run_preload_plugins(data->file,
@@ -96,7 +120,7 @@ static void _wget_onload(void* arg, void* buf, int bufsize) {
 }
 
 static void _wget_onerror(void* arg) {
-  struct AsyncWgetData* data = (struct AsyncWgetData*)arg;
+  AsyncWgetData* data = (AsyncWgetData*)arg;
   data->onerror(data->file);
   free(data);
 }
@@ -109,10 +133,7 @@ void emscripten_async_wget(const char* url, const char* file, em_str_callback_fu
   }
 
   // Allocate data, which will be freed in the async callbacks.
-  struct AsyncWgetData* data = malloc(sizeof(struct AsyncWgetData));
-  data->file = file;
-  data->onload = onload;
-  data->onerror = onerror;
+  auto* data = new AsyncWgetData{file, onload, onerror};
   emscripten_async_wget_data(url,
                              data,
                              _wget_onload,
