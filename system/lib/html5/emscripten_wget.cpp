@@ -69,11 +69,21 @@ struct AsyncWgetData {
   // call |realpath| on it anyhow to standardize the path (that is important
   // for preloading, see below), and so we make that function copy for us. We
   // free it in the destructor.
-  AsyncWgetData(const char* file,
+  AsyncWgetData(const char* file_,
                 em_str_callback_func onload,
-                em_str_callback_func onerror) : file(realpath(file, nullptr)),
+                em_str_callback_func onerror) : file(realpath(file_, nullptr)),
                                                 onload(onload),
-                                                onerror(onerror) {}
+                                                onerror(onerror) {
+    // If the file does not exist then realpath will return null. In that case
+    // set file to the input string, so that the onerror handler that ends up
+    // called will return the right thing.
+    if (!file) {
+      file = strdup(file_);
+    }
+                                                printf("duped %s to %s\n", file_, file);
+char BUF[1000];
+printf("getcwd: %s\n", getcwd(BUF, 1000));
+  }
 
   ~AsyncWgetData() {
     free((void*)file);
@@ -147,7 +157,7 @@ void emscripten_async_wget(const char* url, const char* file, em_str_callback_fu
   }
 
   // Allocate data, which will be freed in the async callbacks we set up below.
-  auto* data = new AsyncWgetData{file, onload, onerror};
+  auto* data = new AsyncWgetData(file, onload, onerror);
 
   emscripten_async_wget_data(url,
                              data,
