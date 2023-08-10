@@ -63,6 +63,21 @@ struct AsyncWgetData {
   const char* file;
   em_str_callback_func onload;
   em_str_callback_func onerror;
+
+  // Note that we must allocate a copy of |file| because we cannot rely on it
+  // still being around - the caller may have had it on the stack. We need to
+  // call |realpath| on it anyhow to standardize the path (that is important
+  // for preloading, see below), and so we make that function copy for us. We
+  // free it in the destructor.
+  AsyncWgetData(const char* file,
+                em_str_callback_func onload,
+                em_str_callback_func onerror) : file(realpath(file, nullptr)),
+                                                onload(onload),
+                                                onerror(onerror) {}
+
+  ~AsyncWgetData() {
+    free((void*)file);
+  }
 };
 
 // Maps filenames to AsyncWgetData for all in-flight operations. This is needed
@@ -122,7 +137,6 @@ static void _wget_onload(void* arg, void* buf, int bufsize) {
 static void _wget_onerror(void* arg) {
   AsyncWgetData* data = (AsyncWgetData*)arg;
   data->onerror(data->file);
-  free(data);
 }
 
 void emscripten_async_wget(const char* url, const char* file, em_str_callback_func onload, em_str_callback_func onerror) {
@@ -132,8 +146,9 @@ void emscripten_async_wget(const char* url, const char* file, em_str_callback_fu
     return;
   }
 
-  // Allocate data, which will be freed in the async callbacks.
+  // Allocate data, which will be freed in the async callbacks we set up below.
   auto* data = new AsyncWgetData{file, onload, onerror};
+
   emscripten_async_wget_data(url,
                              data,
                              _wget_onload,

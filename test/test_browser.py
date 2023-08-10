@@ -1903,7 +1903,7 @@ keydown(100);keyup(100); // trigger the end
 
   def test_emscripten_fs_api(self):
     shutil.copyfile(test_file('screenshot.png'), 'screenshot.png') # preloaded *after* run
-    self.btest_exit('emscripten_fs_api_browser.c', assert_returncode=1, args=['-lSDL'])
+    self.btest_exit('emscripten_fs_api_browser.c', assert_returncode=1, args=['-lSDL', '--profiling', '-sWASM=0'])
 
   def test_emscripten_fs_api2(self):
     self.btest_exit('emscripten_fs_api_browser2.c', assert_returncode=1, args=['-sASSERTIONS=0'])

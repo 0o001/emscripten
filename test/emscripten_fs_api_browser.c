@@ -71,10 +71,12 @@ void wait_wgets() {
 }
 
 void onLoaded(const char* file) {
+  printf("onLoaded: %s\n", file);
   if (strcmp(file, "/tmp/test.html") && strcmp(file, "/tmp/screen_shot.png")
      && strcmp(file, "/this_directory_does_not_exist_and_should_be_created_by_wget/test.html")
      && strcmp(file, "/path/this_directory_is_relative_to_cwd/test.html")) {
-    result = 0;
+printf("sad2\n");
+    result = 2;
   }
 
   FILE * f = fopen(file, "r");
@@ -83,11 +85,11 @@ void onLoaded(const char* file) {
       int c = fgetc (f);
       if (c == EOF) {
         printf("file empty: %s\n", file);
-        result = 0;
+        result = 3;
       }
       fclose(f);
   } else {
-    result = 0;
+    result = 4;
     printf("!exists: %s\n", file);
   }
 
@@ -97,7 +99,7 @@ void onLoaded(const char* file) {
 
 void onError(const char* file) {
   if (strcmp(file, "/tmp/null")) {
-    result = 0;
+    result = 5;
   }
 
   get_count++;
