@@ -78,6 +78,7 @@ struct AsyncWgetData {
     // set file to the input string, so that the onerror handler that ends up
     // called will return the right thing.
     if (!file) {
+      // XXX but the file doesn't exist yet... so realpath always fails XXX
       file = strdup(file_);
     }
                                                 printf("duped %s to %s\n", file_, file);
