@@ -24,11 +24,7 @@ void GetDevice(void (*callback)(wgpu::Device)) {
         if (message) {
             printf("RequestAdapter: %s\n", message);
         }
-        if (status == WGPURequestAdapterStatus_Unavailable) {
-            printf("WebGPU unavailable; exiting cleanly\n");
-            // exit(0) (rather than emscripten_force_exit(0)) ensures there is no dangling keepalive.
-            exit(0);
-        }
+        assert(status != WGPURequestAdapterStatus_Unavailable && "WebGPU unavailable");
         assert(status == WGPURequestAdapterStatus_Success);
 
         wgpu::Adapter adapter = wgpu::Adapter::Acquire(cAdapter);
