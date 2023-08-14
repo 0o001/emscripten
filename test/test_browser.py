@@ -4648,9 +4648,18 @@ Module["preRun"].push(function () {
     for args in [[], ['-sASSERTIONS', '--closure=1'], ['-sMAIN_MODULE=1']]:
       self.btest_exit('webgpu_basic_rendering.cpp', args=['-sUSE_WEBGPU'] + args)
 
+  @requires_graphics_hardware
+  @requires_threads
+  def test_webgpu_basic_rendering_pthreads(self):
+    self.btest_exit('webgpu_basic_rendering.cpp', args=['-sUSE_WEBGPU', '-pthread', '-sPROXY_TO_PTHREAD'])
+
   def test_webgpu_get_device(self):
     for args in [['-sASSERTIONS', '--closure=1']]:
       self.btest_exit('webgpu_get_device.cpp', args=['-sUSE_WEBGPU'] + args)
+
+  @requires_threads
+  def test_webgpu_get_device_pthreads(self):
+    self.btest_exit('webgpu_get_device.cpp', args=['-sUSE_WEBGPU', '-pthread', '-sPROXY_TO_PTHREAD'])
 
   # Tests the feature that shell html page can preallocate the typed array and place it
   # to Module.buffer before loading the script page.
